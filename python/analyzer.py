@@ -7,13 +7,14 @@ import math
 import re
 import sys
 import urllib2
+from BeautifulSoup import BeautifulSoup
 
 
 gflags.DEFINE_string(
     'config_encoding', 'gb18030',
     'Encoding of config files')
 gflags.DEFINE_string(
-    'runtime_encoding', 'gb18030',
+    'runtime_encoding', 'utf8',
     'Encoding used in runtime string processing')
 gflags.DEFINE_string(
     'entities_path', '',
@@ -40,6 +41,9 @@ gflags.DEFINE_boolean(
     'must_match_image_url', False,
     'If set to true, only pick candidates if the page being analyzed '
     'matches the provided image url')
+gflags.DEFINE_boolean(
+    'display_surtext', False,
+    'If set to true, surrounding text will be displayed')
 gflags.DEFINE_integer(
     'header_length',
     1000,
@@ -121,9 +125,12 @@ class Analyzer:
     def analyze_page(self, page, image_url):
         """Analyze the given page and return candidates of highest
            confidence scores.
-           
+
            Note: page must be encoded in FLAGS.runtime_encoding.
         """
+        page = self.extract_text(page, image_url)
+        if FLAGS.display_surtext:
+            print page
         page = page.upper()
 
         # Locate the position of the image.
@@ -181,6 +188,21 @@ class Analyzer:
             pos += 1
         return candidates[:pos]
 
+    def extract_text(self, html, img_url):
+        """Analyze the given page and return img's surrounding text.
+           If fail, return the original html
+        """
+        soup = BeautifulSoup(html)
+        img = soup.body.find("img",src=img_url)
+        if img == None:
+            return html
+        blocktags = {"p":0.3, "div":0.7, "table":0.3, "body":1}
+        l = 1.0
+        while l > 0:
+            img = img.parent
+            if img.name in blocktags:
+                l -= blocktags[img.name]
+        return str(img)
 
     def fetch(self, url):
         if not self.opener:
@@ -215,5 +237,7 @@ if __name__ == '__main__':
         candidates = analyzer.analyze_file(FLAGS.analyze_file_path,
                                            FLAGS.analyze_file_encoding,
                                            FLAGS.analyze_image_url)
-    for entity, score in candidates:
-        print '%s\t%s' % (entity, score)
+
+    if candidates:
+        for entity, score in candidates:
+            print '%s\t%s' % (entity, score)
