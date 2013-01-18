@@ -1,0 +1,4 @@
+1. crawl all pages
+2. extract text from pages
+3. cut text into words
+4. stat tf * idf
